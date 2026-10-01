@@ -1,0 +1,15 @@
+# Build and restore output
+**/bin/
+**/obj/
+
+# Local tooling and packaged build
+.tools/
+BingSmith-release/
+
+# Editor and OS files
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
