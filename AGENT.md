@@ -30,7 +30,7 @@
 - Its private animation methods call `NDebugAudioManager.Play("card_smith.mp3", ...)`. These are async methods; the actual sound call lives in compiler-generated state-machine and callback methods, not necessarily in the outer `PlayAnimation` IL.
 - There are two relevant overloads: a parameterless animation and an `IEnumerable<CardModel>` animation.
 - `NCardSmithVfx` is also used for the visual Smith effect. Keep the original animation and replace only the string passed to the audio call so timing stays aligned with the hammer effect.
-- `NDebugAudioManager.Play` loads temporary audio from `res://debug_audio`. A custom OGG can be loaded with `AudioStreamOggVorbis.LoadFromBuffer(byte[])`.
+- `NDebugAudioManager.Play` loads temporary audio from `res://debug_audio`. Embedded MP3 audio can be loaded with `AudioStreamMP3.LoadFromBuffer(byte[])`.
 - The custom sound can be embedded as a managed resource. The built-in audio file is then not required beside the DLL.
 
 ## Compatibility Rules
@@ -48,3 +48,5 @@
 - Build with `dotnet build BingSmith/BingSmith.csproj -c Release`.
 - The release folder should contain only the DLL and matching JSON manifest. The OGG is embedded in the DLL.
 - Install the release folder under `<game>\mods\BingSmith\`, then enable the mod in the game's Mod menu.
+- BingSmith's settings page uses RitsuLib Settings 0.6.3. Its manifest declares `STS2-RitsuLib` as a dependency. `ModInitializer` registers the settings page and must call Harmony `PatchAll` explicitly.
+- A callback binding exposes the enabled state and volume to RitsuLib; values persist in `%APPDATA%\SlayTheSpire2\BingSmith\settings.json`.

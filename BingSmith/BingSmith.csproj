@@ -19,6 +19,18 @@
       <HintPath>E:\SteamLibrary\steamapps\common\Slay the Spire 2\data_sts2_windows_x86_64\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <EmbeddedResource Include="..\bing-bing-bing.ogg" LogicalName="BingSmith.bing-bing-bing.ogg" />
+    <Reference Include="STS2-RitsuLib.Settings">
+      <HintPath>E:\SteamLibrary\steamapps\workshop\content\2868840\3747602295\shared\STS2-RitsuLib.Settings.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="STS2-RitsuLib.Shared">
+      <HintPath>E:\SteamLibrary\steamapps\workshop\content\2868840\3747602295\shared\STS2-RitsuLib.Shared.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="STS2-RitsuLib.Ui">
+      <HintPath>E:\SteamLibrary\steamapps\workshop\content\2868840\3747602295\shared\STS2-RitsuLib.Ui.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <EmbeddedResource Include="..\bing-bing-bing.mp3" LogicalName="BingSmith.bing-bing-bing.mp3" />
   </ItemGroup>
 </Project>

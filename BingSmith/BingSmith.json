@@ -3,10 +3,15 @@
   "name": "Bing Smith",
   "author": "UnikoZera",
   "description": "Replaces the rest site Smith sound with bing-bing-bing.",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "has_pck": false,
   "has_dll": true,
-  "dependencies": [],
+  "dependencies": [
+    {
+      "id": "STS2-RitsuLib",
+      "min_version": "0.6.3"
+    }
+  ],
   "min_game_version": "0.107.1",
   "affects_gameplay": false
 }
