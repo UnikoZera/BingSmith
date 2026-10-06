@@ -4,7 +4,6 @@
 
 # Local tooling and packaged build
 .tools/
-BingSmith-release/
 
 # Editor and OS files
 .vs/
