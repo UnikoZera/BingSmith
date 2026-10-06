@@ -17,6 +17,20 @@ internal static class BingSmithAudio
     internal static bool Enabled { get; set; } = true;
     internal static double Volume { get; set; } = 1.0;
 
+    internal static void Preload()
+    {
+        try
+        {
+            _sound ??= LoadSound();
+        }
+        catch (Exception exception)
+        {
+            // Keep the lazy load in Play as a fallback if startup runs before
+            // Godot has finished initializing its audio resources.
+            GD.PushError($"BingSmith could not preload replacement audio: {exception}");
+        }
+    }
+
     internal static bool TryPlay(NDebugAudioManager manager, string streamName, float volume, ref int result)
     {
         if (streamName != "card_smith.mp3" || !Enabled || NRestSiteRoom.Instance?.IsInsideTree() != true || !CalledFromSmithVfx())
@@ -112,6 +126,7 @@ internal static class BingSmithSettings
     internal static void Initialize()
     {
         Load();
+        BingSmithAudio.Preload();
         new Harmony("UnikoZera.BingSmith").PatchAll(typeof(BingSmithSettings).Assembly);
         ModSettingsRegistry.Register(ModId, page =>
         {
