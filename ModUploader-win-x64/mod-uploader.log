@@ -1,3 +1,31 @@
-Since you have supplied no arguments, I'll create a workspace in a default location.
-Add --help to the command if you wish to know what else this program can do.
-Copied template files to D:\tools\ModUploader-win-x64\NewModWorkspace
+Initializing Steam
+=================
+By submitting 'Bing Smith - 把你的敲牌音效换成 冰冰冰' to the workshop,
+you agree to the Steam Workshop terms of service:
+https://steamcommunity.com/sharedfiles/workshoplegalagreement
+=================
+Logged in as user 'UnikoZera'.
+Using workshop item ID 3814730273 from mod_id.txt
+Querying existing workshop item details... 
+Found 1 dependencies.
+Uploading 'Bing Smith - 把你的敲牌音效换成 冰冰冰' to the steam workshop with item ID 3814730273...
+Status: k_EItemUpdateStatusPreparingContent
+Status: k_EItemUpdateStatusPreparingContent
+Status: k_EItemUpdateStatusPreparingContent
+Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusUploadingPreviewFile
+Status: k_EItemUpdateStatusCommittingChanges
+Status: k_EItemUpdateStatusCommittingChanges
+Status: k_EItemUpdateStatusInvalid
+No modifications were made to dependencies.
+Successfully uploaded 'Bing Smith - 把你的敲牌音效换成 冰冰冰' to the workshop with id 3814730273! Browsing to the item in Steam.

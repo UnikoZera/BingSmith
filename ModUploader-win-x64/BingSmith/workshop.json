@@ -1,9 +1,9 @@
-{
-  "title": "Bing Smith",
-  "description": "Replaces the rest-site Smith upgrade sound with bing-bing-bing. Includes settings for enabling the replacement, adjusting volume, and previewing the sound. Requires RitsuLib 0.6.3 or newer.",
-  "visibility": "private",
-  "changeNote": "Updated the sound preload path to keep the replacement aligned with the Smith animation.",
+﻿{
+  "title": "Bing Smith - 把你的敲牌音效换成 冰冰冰",
+  "description": "把休息处敲牌的音效换成 老牧师之冰冰冰. 可以在游戏内启用、调整音量和预览音效。需要 RitsuLib 0.6.3 或更高版本。",
+  "visibility": "public",
+  "changeNote": "更新了全新的封面233.",
   "tags": ["Audio", "Cosmetic"],
-  "dependencies": ["3747602295"],
+  "dependencies": [3747602295],
   "contentDescriptors": []
 }
