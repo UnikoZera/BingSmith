@@ -2,8 +2,8 @@
   "id": "BingSmith",
   "name": "Bing Smith",
   "author": "UnikoZera",
-  "description": "Choose between two replacement rest-site Smith sounds, adjust volume and pitch without changing playback length, and preview the result.",
-  "version": "1.3.0",
+  "description": "Choose between two replacement rest-site Smith sounds, fine-tune volume and pitch without changing playback length, preview the result, or restore default settings.",
+  "version": "1.4.0",
   "has_pck": false,
   "has_dll": true,
   "dependencies": [

@@ -17,6 +17,12 @@ Status: k_EItemUpdateStatusUploadingContent
 Status: k_EItemUpdateStatusUploadingContent
 Status: k_EItemUpdateStatusUploadingContent
 Status: k_EItemUpdateStatusUploadingContent
+Status: k_EItemUpdateStatusUploadingContent, bytes processed: 0/83932 (0.00%)
+Status: k_EItemUpdateStatusUploadingContent, bytes processed: 476/83932 (0.57%)
+Status: k_EItemUpdateStatusUploadingContent, bytes processed: 476/83932 (0.57%)
+Status: k_EItemUpdateStatusUploadingContent, bytes processed: 83932/83932 (100.00%)
+Status: k_EItemUpdateStatusUploadingContent, bytes processed: 83932/83932 (100.00%)
+Status: k_EItemUpdateStatusUploadingPreviewFile
 Status: k_EItemUpdateStatusUploadingPreviewFile
 Status: k_EItemUpdateStatusUploadingPreviewFile
 Status: k_EItemUpdateStatusUploadingPreviewFile

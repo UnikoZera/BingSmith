@@ -2,7 +2,7 @@
   "title": "Bing Smith - 把你的敲牌音效换成 冰冰冰",
   "description": "把休息处敲牌的音效换成 老牧师之冰冰冰. 可以在游戏内启用、调整音量和预览音效。需要 RitsuLib 0.6.3 或更高版本。",
   "visibility": "public",
-  "changeNote": "更新了全新的封面233.",
+  "changeNote": "1.4.0: 现在可以在游戏内启用、调整音量和预览音效。",
   "tags": ["Audio", "Cosmetic"],
   "dependencies": [3747602295],
   "contentDescriptors": []

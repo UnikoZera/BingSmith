@@ -2,8 +2,8 @@
   "id": "BingSmith",
   "name": "Bing Smith",
   "author": "UnikoZera",
-  "description": "Replaces the rest site Smith sound with bing-bing-bing.",
-  "version": "1.2.0",
+  "description": "Choose between two replacement rest-site Smith sounds, fine-tune volume and pitch without changing playback length, preview the result, or restore default settings.",
+  "version": "1.4.0",
   "has_pck": false,
   "has_dll": true,
   "dependencies": [
