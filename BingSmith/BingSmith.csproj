@@ -31,6 +31,7 @@
       <HintPath>E:\SteamLibrary\steamapps\workshop\content\2868840\3747602295\shared\STS2-RitsuLib.Ui.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <EmbeddedResource Include="..\bing-bing-bing.mp3" LogicalName="BingSmith.bing-bing-bing.mp3" />
+    <EmbeddedResource Include="..\bing-fix.mp3" LogicalName="BingSmith.bing-fix.mp3" />
+    <EmbeddedResource Include="..\bing.mp3" LogicalName="BingSmith.bing.mp3" />
   </ItemGroup>
 </Project>
