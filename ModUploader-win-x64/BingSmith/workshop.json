@@ -1,8 +1,8 @@
-﻿{
-  "title": "Bing Smith - 把你的敲牌音效换成 冰冰冰",
-  "description": "把休息处敲牌的音效换成 老牧师之冰冰冰. 可以在游戏内启用、调整音量和预览音效。需要 RitsuLib 0.6.3 或更高版本。",
+{
+  "title": "Bing Smith - 自定义锻造音效",
+  "description": "为休息处锻造选择 Bing Fix 或 Bing 音效，可微调个人音量与音调并试听。联机同步每位玩家的音效选择、音调和替换开关，音量保持本地。需要 RitsuLib 0.6.3 或更高版本。",
   "visibility": "public",
-  "changeNote": "1.4.0: 现在可以在游戏内启用、调整音量和预览音效。",
+  "changeNote": "1.5.0：联机同步每位玩家的音效、音调和替换开关；默认本地音量调整为 200%。",
   "tags": ["Audio", "Cosmetic"],
   "dependencies": [3747602295],
   "contentDescriptors": []

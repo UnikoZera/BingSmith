@@ -1,30 +1,22 @@
 # Bing Smith
 
-Bing Smith replaces the sound played when Smith upgrades a card at a rest site in Slay the Spire 2 with `bing-bing-bing`.
+Bing Smith 是《Slay the Spire 2》的休息处锻造音效替换模组。音效跟随原版锻造动画触发，不影响动画进度。
 
-## Features
+## 功能
 
-- Replaces only the rest-site Smith sound.
-- Keeps the original Smith animation timing.
-- Includes the replacement audio in the DLL.
-- Provides settings for enable/disable, volume from 0% to 200%, and preview.
+- 可选 Bing Fix（默认）或 Bing，两段 MP3 均已嵌入 DLL。
+- 音量可调 0–500%，默认 200%；音量只影响本机听感，不在玩家之间同步。
+- 音调范围为 −24 至 +24 半音，支持 0.1 半音微调，并保持音频时长不变。
+- 联机同步每位玩家的替换开关、音效和音调，因此可以分别听到每个人自己的选择。
+- 玩家关闭替换开关时，所有客户端对该玩家的锻造动作播放原版音效。
+- 设置页提供试听和恢复默认。
 
-## Requirements
+## 依赖与安装
 
-- Slay the Spire 2 version 0.107.1 or newer.
-- RitsuLib 0.6.3 or newer.
+需要 Slay the Spire 2 0.107.1 或更新版本，以及 RitsuLib 0.6.3 或更新版本。将 `BingSmith.dll` 和 `BingSmith.json` 放入游戏目录的 `mods/BingSmith/` 文件夹，再从游戏模组菜单启用。
 
-## Installation
+要使用联机音效设置同步，所有参与者都需要安装并启用 Bing Smith 模组本体。个人音量不会同步。
 
-1. Install and enable RitsuLib.
-2. Copy the `BingSmith` folder into the game's `mods` directory.
-3. Enable Bing Smith from the in-game mod menu.
-4. Open Mod Settings to configure the sound.
+## 作者
 
-## Compatibility
-
-Bing Smith does not affect gameplay. It only changes the rest-site Smith sound. If a game update changes the Smith animation or sound name, the mod may need an update.
-
-## Credits
-
-Created by UnikoZera.
+UnikoZera

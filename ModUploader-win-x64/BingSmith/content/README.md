@@ -1,5 +1,5 @@
-# Bing Smith content
+# Bing Smith 创意工坊内容
 
-This directory contains the compiled Bing Smith mod files uploaded to Steam Workshop.
+本目录包含上传到 Steam 创意工坊的已编译模组文件。
 
-The mod replaces the rest-site Smith sound in Slay the Spire 2. Install RitsuLib 0.6.3 or newer before enabling it.
+Bing Smith 可替换休息处锻造音效，并允许分别设置音效、音量和音调。联机时每位玩家的音效选择、音调和替换开关会同步；音量保持本地。需要 Slay the Spire 2 0.107.1 或更新版本及 RitsuLib 0.6.3 或更新版本。

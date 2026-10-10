@@ -1,17 +1,52 @@
 # Bing Smith
 
-Replaces the sound played when Smith upgrades a card at a rest site in Slay the Spire 2. The replacement audio is embedded in the DLL from `bing-bing-bing.mp3`.
+Bing Smith 是《Slay the Spire 2》的外观音效模组，只替换休息处升级卡牌时的锻造音效。它沿用游戏原本的音效触发点，因此音效仍会跟随锻造动画播放。
 
-## Build
+## 功能与特色
 
-Requires .NET SDK 10, .NET 9 reference packs, and a local Slay the Spire 2 installation. Update the three `HintPath` values in `BingSmith/BingSmith.csproj` if the game is installed elsewhere.
+- 内置两种可选音效：`bing-fix.mp3`（默认）和 `bing.mp3`。音频直接嵌入 DLL，安装时不需要把 MP3 单独放进游戏目录。
+- 可在模组设置中关闭替换、试听当前选择，或一键恢复默认。
+- 音量范围为 0–500%，默认 200%。这是听众自己的本地音量：联机时每个人都用自己的音量听所有玩家的音效，不会把某位玩家设定的音量传给其他人。
+- 音调可在 −24 到 +24 半音之间以 0.1 半音步进调整。音调通过音高移位效果处理，不会按变调比例缩短或拉长音频。
+- 联机时会同步每位玩家的替换开关、音效选择和音调。比如玩家 A 选择 `bing.mp3` 并升高 3 个半音，玩家 B 选择默认音效并降低 2 个半音，那么其他客户端会分别按 A、B 的设置播放。
+- 如果某位玩家关闭了“启用替换音效”，所有客户端在播放该玩家触发的锻造音效时都会使用游戏原版音效。
+- 音效钩子限定在游戏的锻造 VFX 中，不会全局替换其他模组或系统调用同名的 `card_smith.mp3`。
+
+## 游戏内设置
+
+在游戏模组设置中打开 **Bing Smith**：
+
+| 设置 | 作用 |
+| --- | --- |
+| 启用替换音效 | 控制自己的锻造动作是否使用替换音效；此开关会在联机时同步给其他玩家 |
+| 音效 | 选择 Bing Fix 或 Bing；会在联机时同步 |
+| 本地音量 | 调整自己听到的替换音效大小，不会同步给其他玩家 |
+| 音调 | 调整音高并保持音频时长；会在联机时同步 |
+| 试听当前音效 | 按本机当前音效、音量和音调播放试听 |
+| 恢复默认 | 启用替换、选用 Bing Fix、将本地音量设为 200%、将音调归零 |
+
+要让联机中的所有人都听到每位玩家的不同设置，每位参与者都需要安装并启用 Bing Smith 模组本体。单独关闭“启用替换音效”不会关闭模组，它会同步为该玩家使用原版敲牌音效。
+
+## 安装
+
+安装 RitsuLib 0.6.3 或更新版本，然后将 `BingSmith.dll` 和配套的 `BingSmith.json` 放在游戏目录的 `mods/BingSmith/` 文件夹中，并在游戏模组菜单里启用 Bing Smith。该模组最低适配游戏版本为 0.107.1。
+
+## 构建
+
+项目目标框架为 .NET 9，使用 .NET SDK 10 构建。构建机需要安装游戏及 .NET 9 targeting pack；`BingSmith/BingSmith.csproj` 中的游戏和 RitsuLib 引用路径需要指向本机安装位置。
 
 ```powershell
-dotnet build BingSmith/BingSmith.csproj -c Release
+dotnet build BingSmith/BingSmith.csproj -c Release -o buildout
+Copy-Item BingSmith/BingSmith.json buildout/BingSmith.json -Force
 ```
 
-## Install
+`buildout` 中的 DLL 和同名 JSON 即为可安装文件。两个 MP3 会作为嵌入资源编入 DLL。
 
-Install RitsuLib 0.6.3 or newer. Place `BingSmith.dll` and `BingSmith.json` together in a `BingSmith` folder under the game's `mods` directory, next to `SlayTheSpire2.exe`. Enable the mod from the game's mod menu. In Mod Settings, open Bing Smith to toggle the replacement, set volume (0-200%), or play a preview.
+## 当前适配范围
 
-This mod targets game version 0.107.1. After a game update, rebuild and verify that the Smith sound still uses `card_smith.mp3`.
+- 游戏版本：最低 0.107.1
+- RitsuLib：最低 0.6.3
+- 模组版本：1.5.0
+- `affects_gameplay`：`false`
+
+游戏更新如果改动了 `NCardSmithVfx` 的动画状态机或音效调用，可能需要更新兼容补丁。

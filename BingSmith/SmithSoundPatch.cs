@@ -1,30 +1,39 @@
-using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Audio.Debug;
+using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Modding;
+using MegaCrit.Sts2.Core.Multiplayer.Game;
+using MegaCrit.Sts2.Core.Multiplayer.Serialization;
+using MegaCrit.Sts2.Core.Multiplayer.Transport;
+using MegaCrit.Sts2.Core.Nodes.Cards;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Vfx;
+using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Runs;
 using STS2RitsuLib.Settings;
 using STS2RitsuLib.Utils.Persistence;
 
 namespace BingSmith;
 
+internal readonly record struct PlayerAudioOptions(bool Enabled, string Sound, double PitchSemitones);
+
 internal static class BingSmithAudio
 {
-    private const string DefaultSound = "bing-fix.mp3";
+    internal const string DefaultSound = "bing-fix.mp3";
     private const string AlternateSound = "bing.mp3";
-    private const string PitchBusName = "BingSmithPitchShift";
+    internal const double DefaultVolume = 2.0;
     internal const double MaxVolume = 5.0;
     internal const double PitchRange = 24.0;
 
+    private static readonly Dictionary<ulong, (string BusName, AudioEffectPitchShift Effect)> PitchBuses = new();
     private static AudioStreamMP3? _bingFixSound;
     private static AudioStreamMP3? _bingSound;
-    private static AudioEffectPitchShift? _pitchEffect;
-    private static int _pitchBusIndex = -1;
     private static string _selectedSound = DefaultSound;
     private static double _pitchSemitones;
-    private static double _volume = 1.0;
+    private static double _volume = DefaultVolume;
 
     internal static bool Enabled { get; set; } = true;
 
@@ -43,36 +52,44 @@ internal static class BingSmithAudio
     internal static double PitchSemitones
     {
         get => _pitchSemitones;
-        set
-        {
-            _pitchSemitones = Math.Clamp(value, -PitchRange, PitchRange);
-            if (_pitchEffect != null)
-                _pitchEffect.PitchScale = (float)Math.Pow(2.0, _pitchSemitones / 12.0);
-        }
+        set => _pitchSemitones = Math.Clamp(value, -PitchRange, PitchRange);
     }
+
+    internal static PlayerAudioOptions LocalOptions => new(Enabled, SelectedSound, PitchSemitones);
 
     internal static void Preload()
     {
         PreloadSound(DefaultSound);
         PreloadSound(AlternateSound);
-        ConfigurePitchBus();
     }
 
-    internal static bool TryPlay(NDebugAudioManager manager, string streamName, float volume, ref int result)
+    internal static int PlayFromSmithVfx(
+        NDebugAudioManager? manager,
+        string streamName,
+        float originalVolume,
+        PitchVariance variance,
+        NCardSmithVfx smithVfx)
     {
-        if (streamName != "card_smith.mp3" || !Enabled || NRestSiteRoom.Instance?.IsInsideTree() != true || !CalledFromSmithVfx())
-            return true;
+        if (manager == null)
+            return 0;
+
+        if (streamName != NCardSmithVfx.smithSfx || NRestSiteRoom.Instance?.IsInsideTree() != true)
+            return manager.Play(streamName, originalVolume, variance);
+
+        var playerId = SmithVfxOwners.GetOwnerId(smithVfx) ?? BingSmithNetwork.LocalPlayerId;
+        var options = playerId is ulong id ? BingSmithNetwork.GetOptionsFor(id) : LocalOptions;
+        if (!options.Enabled)
+            return manager.Play(streamName, originalVolume, variance);
 
         try
         {
-            Play(manager, volume * (float)Volume);
-            result = 0;
-            return false;
+            Play(manager, options, originalVolume * (float)Volume, playerId);
+            return 0;
         }
         catch (Exception exception)
         {
             GD.PushError($"BingSmith could not play replacement audio: {exception}");
-            return true;
+            return manager.Play(streamName, originalVolume, variance);
         }
     }
 
@@ -81,7 +98,7 @@ internal static class BingSmithAudio
         try
         {
             if (NDebugAudioManager.Instance != null)
-                Play(NDebugAudioManager.Instance, (float)Volume);
+                Play(NDebugAudioManager.Instance, LocalOptions, (float)Volume, BingSmithNetwork.LocalPlayerId);
         }
         catch (Exception exception)
         {
@@ -89,37 +106,49 @@ internal static class BingSmithAudio
         }
     }
 
-    private static void Play(NDebugAudioManager manager, float volume)
+    private static void Play(NDebugAudioManager manager, PlayerAudioOptions options, float volume, ulong? playerId)
     {
         var player = new AudioStreamPlayer
         {
-            Stream = GetSelectedSound(),
+            Stream = GetSound(options.Sound),
             VolumeLinear = Math.Clamp(volume, 0f, (float)MaxVolume),
-            Bus = _pitchBusIndex >= 0 ? PitchBusName : "SFX"
+            Bus = GetPitchBus(playerId ?? 0, options.PitchSemitones)
         };
         player.Finished += player.QueueFree;
         manager.AddChild(player);
         player.Play();
     }
 
-    private static bool CalledFromSmithVfx()
+    private static string GetPitchBus(ulong playerId, double pitchSemitones)
     {
-        var smithType = typeof(NCardSmithVfx);
-        var frames = new StackTrace().GetFrames();
-        if (frames == null)
-            return false;
-
-        foreach (var frame in frames)
+        var busName = $"BingSmithPitch_{playerId:X16}";
+        try
         {
-            var type = frame.GetMethod()?.DeclaringType;
-            while (type != null)
+            if (!PitchBuses.TryGetValue(playerId, out var bus))
             {
-                if (type == smithType)
-                    return true;
-                type = type.DeclaringType;
+                var busIndex = AudioServer.GetBusIndex(busName);
+                if (busIndex < 0)
+                {
+                    busIndex = AudioServer.BusCount;
+                    AudioServer.AddBus(busIndex);
+                    AudioServer.SetBusName(busIndex, busName);
+                    AudioServer.SetBusSend(busIndex, AudioServer.GetBusIndex("SFX") >= 0 ? "SFX" : "Master");
+                }
+
+                var effect = new AudioEffectPitchShift();
+                AudioServer.AddBusEffect(busIndex, effect);
+                bus = (busName, effect);
+                PitchBuses[playerId] = bus;
             }
+
+            bus.Effect.PitchScale = (float)Math.Pow(2.0, pitchSemitones / 12.0);
+            return bus.BusName;
         }
-        return false;
+        catch (Exception exception)
+        {
+            GD.PushError($"BingSmith could not configure pitch shifting for player {playerId}: {exception}");
+            return AudioServer.GetBusIndex("SFX") >= 0 ? "SFX" : "Master";
+        }
     }
 
     private static void PreloadSound(string soundName)
@@ -137,9 +166,9 @@ internal static class BingSmithAudio
         }
     }
 
-    private static AudioStreamMP3 GetSelectedSound()
+    private static AudioStreamMP3 GetSound(string soundName)
     {
-        if (SelectedSound == AlternateSound)
+        if (soundName == AlternateSound)
             return _bingSound ??= LoadSound(AlternateSound);
         return _bingFixSound ??= LoadSound(DefaultSound);
     }
@@ -154,45 +183,283 @@ internal static class BingSmithAudio
         return AudioStreamMP3.LoadFromBuffer(buffer.ToArray())
             ?? throw new InvalidOperationException($"Godot could not decode {soundName}.");
     }
+}
 
-    private static void ConfigurePitchBus()
+/// <summary>
+/// Carries a player's replacement choice and pitch to the other clients. Listener volume is deliberately local.
+/// </summary>
+public sealed class BingSmithAudioSettingsMessage : INetMessage
+{
+    public ulong PlayerId { get; set; }
+    public bool Enabled { get; set; }
+    public bool UseAlternateSound { get; set; }
+    public double PitchSemitones { get; set; }
+
+    public bool ShouldBroadcast => true;
+    public NetTransferMode Mode => NetTransferMode.Reliable;
+    public LogLevel LogLevel => LogLevel.VeryDebug;
+    public bool ShouldBuffer => true;
+
+    public void Serialize(PacketWriter writer)
     {
+        writer.WriteULong(PlayerId);
+        writer.WriteBool(Enabled);
+        writer.WriteBool(UseAlternateSound);
+        writer.WriteDouble(PitchSemitones);
+    }
+
+    public void Deserialize(PacketReader reader)
+    {
+        PlayerId = reader.ReadULong();
+        Enabled = reader.ReadBool();
+        UseAlternateSound = reader.ReadBool();
+        PitchSemitones = reader.ReadDouble();
+    }
+}
+
+/// <summary>Requests the current player settings from the host, including settings announced before this client joined.</summary>
+public sealed class BingSmithAudioSettingsRequestMessage : INetMessage
+{
+    public bool ShouldBroadcast => false;
+    public NetTransferMode Mode => NetTransferMode.Reliable;
+    public LogLevel LogLevel => LogLevel.VeryDebug;
+    public bool ShouldBuffer => true;
+
+    public void Serialize(PacketWriter writer) { }
+    public void Deserialize(PacketReader reader) { }
+}
+
+internal static class BingSmithNetwork
+{
+    private static readonly Dictionary<ulong, PlayerAudioOptions> OtherPlayers = new();
+    private static INetGameService? _service;
+    private static bool _announced;
+    private static bool _requestedSnapshot;
+
+    internal static ulong? LocalPlayerId => _service?.NetId;
+
+    internal static void Attach(INetGameService service)
+    {
+        if (ReferenceEquals(service, _service))
+        {
+            TryAnnounce();
+            return;
+        }
+
+        if (_service != null)
+        {
+            _service.UnregisterMessageHandler<BingSmithAudioSettingsMessage>(OnSettingsReceived);
+            _service.UnregisterMessageHandler<BingSmithAudioSettingsRequestMessage>(OnSettingsRequested);
+            _service.Disconnected -= OnDisconnected;
+        }
+
+        _service = service;
+        _announced = false;
+        _requestedSnapshot = false;
+        OtherPlayers.Clear();
+        service.RegisterMessageHandler<BingSmithAudioSettingsMessage>(OnSettingsReceived);
+        service.RegisterMessageHandler<BingSmithAudioSettingsRequestMessage>(OnSettingsRequested);
+        service.Disconnected += OnDisconnected;
+        TryAnnounce();
+    }
+
+    internal static PlayerAudioOptions GetOptionsFor(ulong playerId)
+    {
+        if (_service?.NetId == playerId)
+            return BingSmithAudio.LocalOptions;
+        return OtherPlayers.TryGetValue(playerId, out var options)
+            ? options
+            : new PlayerAudioOptions(true, BingSmithAudio.DefaultSound, 0.0);
+    }
+
+    internal static void PublishLocalSettings()
+    {
+        TryAnnounce(forceUpdate: true);
+    }
+
+    private static void TryAnnounce(bool forceUpdate = false)
+    {
+        if (_service == null || !_service.IsConnected || _service.Type is not (NetGameType.Host or NetGameType.Client))
+            return;
+
+        if (forceUpdate || !_announced)
+        {
+            var options = BingSmithAudio.LocalOptions;
+            OtherPlayers[_service.NetId] = options;
+            _service.SendMessage(ToMessage(_service.NetId, options));
+            _announced = true;
+        }
+
+        if (_service.Type == NetGameType.Client && !_requestedSnapshot)
+        {
+            _service.SendMessage(new BingSmithAudioSettingsRequestMessage());
+            _requestedSnapshot = true;
+        }
+    }
+
+    private static BingSmithAudioSettingsMessage ToMessage(ulong playerId, PlayerAudioOptions options) => new()
+    {
+        PlayerId = playerId,
+        Enabled = options.Enabled,
+        UseAlternateSound = options.Sound == "bing.mp3",
+        PitchSemitones = options.PitchSemitones
+    };
+
+    private static void OnSettingsReceived(BingSmithAudioSettingsMessage message, ulong senderId)
+    {
+        if (_service == null)
+            return;
+
+        if (_service.Type == NetGameType.Host && senderId != message.PlayerId)
+            return;
+
+        OtherPlayers[message.PlayerId] = new PlayerAudioOptions(
+            message.Enabled,
+            message.UseAlternateSound ? "bing.mp3" : BingSmithAudio.DefaultSound,
+            Math.Clamp(message.PitchSemitones, -BingSmithAudio.PitchRange, BingSmithAudio.PitchRange));
+    }
+
+    private static void OnSettingsRequested(BingSmithAudioSettingsRequestMessage _, ulong senderId)
+    {
+        if (_service?.Type != NetGameType.Host)
+            return;
+
+        foreach (var (playerId, options) in OtherPlayers.ToArray())
+            _service.SendMessage(ToMessage(playerId, options), senderId);
+    }
+
+    private static void OnDisconnected(MegaCrit.Sts2.Core.Entities.Multiplayer.NetErrorInfo _)
+    {
+        _service = null;
+        OtherPlayers.Clear();
+        _announced = false;
+        _requestedSnapshot = false;
+    }
+}
+
+internal static class SmithVfxOwners
+{
+    private sealed record Owner(ulong PlayerId);
+    private static readonly ConditionalWeakTable<NCardSmithVfx, Owner> Owners = new();
+    private static readonly FieldInfo CardsField = AccessTools.Field(typeof(NCardSmithVfx), "_cards")!;
+
+    internal static ulong? GetOwnerId(NCardSmithVfx smithVfx) =>
+        Owners.TryGetValue(smithVfx, out var owner) ? owner.PlayerId : null;
+
+    internal static void Associate(NCardSmithVfx? smithVfx, object[] arguments)
+    {
+        if (smithVfx == null || arguments.Length < 2 || arguments[1] is not true)
+            return;
+
         try
         {
-            _pitchBusIndex = AudioServer.GetBusIndex(PitchBusName);
-            if (_pitchBusIndex < 0)
+            ulong? playerId = arguments[0] switch
             {
-                _pitchBusIndex = AudioServer.BusCount;
-                AudioServer.AddBus(_pitchBusIndex);
-                AudioServer.SetBusName(_pitchBusIndex, PitchBusName);
-                AudioServer.SetBusSend(_pitchBusIndex, AudioServer.GetBusIndex("SFX") >= 0 ? "SFX" : "Master");
-            }
+                NCard card => card.Model?.Owner?.NetId,
+                IEnumerable<CardModel> => ((IEnumerable<CardModel>?)CardsField.GetValue(smithVfx))?.FirstOrDefault()?.Owner?.NetId,
+                _ => null
+            };
 
-            _pitchEffect = new AudioEffectPitchShift { PitchScale = 1f };
-            AudioServer.AddBusEffect(_pitchBusIndex, _pitchEffect);
-            PitchSemitones = _pitchSemitones;
+            if (playerId is ulong id)
+            {
+                Owners.Remove(smithVfx);
+                Owners.Add(smithVfx, new Owner(id));
+            }
         }
         catch (Exception exception)
         {
-            _pitchBusIndex = -1;
-            _pitchEffect = null;
-            GD.PushError($"BingSmith could not configure pitch shifting: {exception}");
+            GD.PushWarning($"BingSmith could not identify the player for a Smith animation: {exception.Message}");
         }
     }
 }
 
-[HarmonyPatch(typeof(NDebugAudioManager), nameof(NDebugAudioManager.Play))]
-internal static class ReplacementAudioPatch
+[HarmonyPatch]
+internal static class SmithAnimationSoundPatch
 {
-    private static bool Prefix(NDebugAudioManager __instance, string streamName, float volume, ref int __result) =>
-        BingSmithAudio.TryPlay(__instance, streamName, volume, ref __result);
+    private static readonly MethodInfo AudioPlay = AccessTools.Method(
+        typeof(NDebugAudioManager), nameof(NDebugAudioManager.Play),
+        new[] { typeof(string), typeof(float), typeof(PitchVariance) })!;
+    private static readonly MethodInfo ReplacementPlay = AccessTools.Method(
+        typeof(BingSmithAudio), nameof(BingSmithAudio.PlayFromSmithVfx))!;
+
+    private static IEnumerable<MethodBase> TargetMethods()
+    {
+        foreach (var animation in typeof(NCardSmithVfx).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                     .Where(method => method.Name == "PlayAnimation"))
+        {
+            var stateMachine = animation.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType;
+            var moveNext = stateMachine?.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (moveNext != null)
+                yield return moveNext;
+        }
+    }
+
+    [HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> Transpiler(
+        IEnumerable<CodeInstruction> instructions,
+        MethodBase __originalMethod)
+    {
+        var vfxField = __originalMethod.DeclaringType?.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(field => field.FieldType == typeof(NCardSmithVfx));
+        if (vfxField == null)
+        {
+            GD.PushError($"BingSmith could not find the owning VFX field in {__originalMethod.DeclaringType}.");
+            return instructions;
+        }
+
+        var output = new List<CodeInstruction>();
+        var replacementCount = 0;
+        foreach (var instruction in instructions)
+        {
+            if (instruction.Calls(AudioPlay))
+            {
+                var loadVfx = new CodeInstruction(System.Reflection.Emit.OpCodes.Ldarg_0);
+                loadVfx.labels.AddRange(instruction.labels);
+                instruction.labels.Clear();
+                output.Add(loadVfx);
+                output.Add(new CodeInstruction(System.Reflection.Emit.OpCodes.Ldfld, vfxField));
+                instruction.opcode = System.Reflection.Emit.OpCodes.Call;
+                instruction.operand = ReplacementPlay;
+                replacementCount++;
+            }
+
+            output.Add(instruction);
+        }
+
+        if (replacementCount != 1)
+            GD.PushError($"BingSmith expected one Smith sound call in {__originalMethod}, found {replacementCount}.");
+        return output;
+    }
+}
+
+[HarmonyPatch]
+internal static class SmithVfxOwnerPatch
+{
+    private static IEnumerable<MethodBase> TargetMethods() =>
+        typeof(NCardSmithVfx).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(method => method.Name == "Create")
+            .Where(method =>
+            {
+                var parameters = method.GetParameters();
+                return parameters.Length == 2 && parameters[1].ParameterType == typeof(bool) &&
+                       (parameters[0].ParameterType == typeof(NCard) || parameters[0].ParameterType == typeof(IEnumerable<CardModel>));
+            });
+
+    [HarmonyPostfix]
+    private static void Postfix(object[] __args, NCardSmithVfx? __result) => SmithVfxOwners.Associate(__result, __args);
+}
+
+[HarmonyPatch(typeof(RunManager), "InitializeShared")]
+internal static class SmithNetworkInitializationPatch
+{
+    [HarmonyPostfix]
+    private static void Postfix(RunManager __instance) => BingSmithNetwork.Attach(__instance.NetService);
 }
 
 [ModInitializer("Initialize")]
 internal static class BingSmithSettings
 {
     private const string ModId = "BingSmith";
-    private const double DefaultVolume = 1.0;
     private const string DefaultSound = "bing-fix.mp3";
     private static readonly string ConfigPath = Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
@@ -206,21 +473,21 @@ internal static class BingSmithSettings
         ModSettingsRegistry.Register(ModId, page =>
         {
             var enabled = ModSettingsBindings.Callback<bool>(ModId, "enabled", () => BingSmithAudio.Enabled,
-                value => BingSmithAudio.Enabled = value, Save);
+                value => BingSmithAudio.Enabled = value, SaveAndSync);
             var sound = ModSettingsBindings.Callback<string>(ModId, "sound", () => BingSmithAudio.SelectedSound,
-                value => BingSmithAudio.SelectedSound = value, Save);
+                value => BingSmithAudio.SelectedSound = value, SaveAndSync);
             var volume = ModSettingsBindings.Callback<double>(ModId, "volume", () => BingSmithAudio.Volume,
                 value => BingSmithAudio.Volume = value, Save);
             var pitch = ModSettingsBindings.Callback<double>(ModId, "pitch", () => BingSmithAudio.PitchSemitones,
-                value => BingSmithAudio.PitchSemitones = value, Save);
+                value => BingSmithAudio.PitchSemitones = value, SaveAndSync);
 
             page.WithTitle(ModSettingsText.Literal("Bing Smith"))
-                .WithDescription(Text("设置锻造音效、音量和音调。", "Configure the Smith sound, volume, and pitch."))
+                .WithDescription(Text("自定义锻造音效、个人音量和音调；联机时同步每位玩家的音效选择与音调。", "Choose a Smith sound and personal volume; sound choice and pitch are shared in multiplayer."))
                 .WithModDisplayName(ModSettingsText.Literal("Bing Smith"))
                 .AddSection("audio", section =>
                 {
-                    section.WithTitle(Text("音效控制", "Sound controls"))
-                        .AddCustom("controls", Text("播放设置", "Playback settings"),
+                    section.WithTitle(Text("音效设置", "Sound settings"))
+                        .AddCustom("controls", Text("播放选项", "Playback options"),
                             _ => CreateSettingsControl(enabled, sound, volume, pitch));
                 });
         });
@@ -232,10 +499,7 @@ internal static class BingSmithSettings
         IModSettingsValueBinding<double> volume,
         IModSettingsValueBinding<double> pitch)
     {
-        var layout = new VBoxContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
+        var layout = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 
         var enabledToggle = new CheckButton
         {
@@ -279,7 +543,7 @@ internal static class BingSmithSettings
             CustomMinimumSize = new Vector2(100, 0)
         };
         LinkVolumeControls(volume, volumeSlider, volumeInput);
-        layout.AddChild(CreateLabeledRow(IsChinese() ? "音量（0–500%）" : "Volume (0–500%)", volumeSlider, volumeInput));
+        layout.AddChild(CreateLabeledRow(IsChinese() ? "本地音量（0–500%）" : "Local volume (0–500%)", volumeSlider, volumeInput));
 
         var pitchSlider = new HSlider
         {
@@ -300,7 +564,7 @@ internal static class BingSmithSettings
             CustomMinimumSize = new Vector2(100, 0)
         };
         LinkPitchControls(pitch, pitchSlider, pitchInput);
-        layout.AddChild(CreateLabeledRow(IsChinese() ? "音调（-24 至 +24 半音）" : "Pitch (-24 to +24 semitones)", pitchSlider, pitchInput));
+        layout.AddChild(CreateLabeledRow(IsChinese() ? "音调（−24 至 +24 半音）" : "Pitch (−24 to +24 semitones)", pitchSlider, pitchInput));
 
         layout.AddChild(new HSeparator());
         var buttons = new HBoxContainer
@@ -308,7 +572,7 @@ internal static class BingSmithSettings
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End
         };
-        var previewButton = new Button { Text = IsChinese() ? "试听当前设置" : "Preview current settings" };
+        var previewButton = new Button { Text = IsChinese() ? "试听当前音效" : "Preview current sound" };
         previewButton.Pressed += BingSmithAudio.PlayTest;
         var defaultButton = new Button { Text = IsChinese() ? "恢复默认" : "Restore defaults" };
         defaultButton.Pressed += () => RestoreDefaults(
@@ -384,14 +648,14 @@ internal static class BingSmithSettings
     {
         enabled.Write(true);
         sound.Write(DefaultSound);
-        volume.Write(DefaultVolume);
+        volume.Write(BingSmithAudio.DefaultVolume);
         pitch.Write(0.0);
         enabled.Save();
 
         enabledToggle.SetPressedNoSignal(true);
         soundSelector.Selected = 0;
-        volumeSlider.SetValueNoSignal(DefaultVolume * 100);
-        volumeInput.SetValueNoSignal(DefaultVolume * 100);
+        volumeSlider.SetValueNoSignal(BingSmithAudio.DefaultVolume * 100);
+        volumeInput.SetValueNoSignal(BingSmithAudio.DefaultVolume * 100);
         pitchSlider.SetValueNoSignal(0);
         pitchInput.SetValueNoSignal(0);
     }
@@ -420,10 +684,16 @@ internal static class BingSmithSettings
         catch
         {
             BingSmithAudio.Enabled = true;
-            BingSmithAudio.Volume = DefaultVolume;
+            BingSmithAudio.Volume = BingSmithAudio.DefaultVolume;
             BingSmithAudio.SelectedSound = DefaultSound;
             BingSmithAudio.PitchSemitones = 0.0;
         }
+    }
+
+    private static void SaveAndSync()
+    {
+        Save();
+        BingSmithNetwork.PublishLocalSettings();
     }
 
     private static void Save()
@@ -441,7 +711,7 @@ internal static class BingSmithSettings
     private sealed class SettingsFile
     {
         public bool Enabled { get; set; } = true;
-        public double Volume { get; set; } = DefaultVolume;
+        public double Volume { get; set; } = BingSmithAudio.DefaultVolume;
         public string Sound { get; set; } = DefaultSound;
         public double PitchSemitones { get; set; }
     }

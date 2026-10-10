@@ -2,8 +2,8 @@
   "id": "BingSmith",
   "name": "Bing Smith",
   "author": "UnikoZera",
-  "description": "Choose between two replacement rest-site Smith sounds, fine-tune volume and pitch without changing playback length, preview the result, or restore default settings.",
-  "version": "1.4.0",
+  "description": "Choose between two rest-site Smith sounds, adjust local volume and pitch without changing audio length, preview or restore defaults. Multiplayer syncs each player's sound, pitch, and replacement toggle while keeping volume local.",
+  "version": "1.5.0",
   "has_pck": false,
   "has_dll": true,
   "dependencies": [
